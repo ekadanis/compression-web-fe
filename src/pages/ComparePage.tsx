@@ -71,6 +71,16 @@ export function ComparePage() {
                     <th style={{ textAlign: 'left', fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.08em', padding: '0 16px 8px', width: 130 }}>
                       METRIC
                     </th>
+                    <th style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '0 16px 8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <span style={{
+                          background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)',
+                          borderRadius: 6, padding: '3px 10px', color: '#93c5fd',
+                        }}>
+                          Original
+                        </span>
+                      </div>
+                    </th>
                     {result.compressions.map(c => (
                       <th key={c.id} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '0 16px 8px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -105,30 +115,35 @@ export function ComparePage() {
                     },
                     {
                       label: 'Codec',
-                      original: '—',
+                      original: orig?.codec ?? '—',
                       fmt: (c: typeof result.compressions[number]) => c.codec ?? '—',
                     },
                     {
                       label: 'Bitrate',
-                      original: '—',
+                      original: orig?.bitrate ? `${orig.bitrate} kbps` : '—',
                       fmt: (c: typeof result.compressions[number]) => c.bitrate ? `${c.bitrate} kbps` : '—',
                     },
                     {
                       label: 'Resolution',
-                      original: '—',
+                      original: orig?.resolution?.replace(':', '×') ?? '—',
                       fmt: (c: typeof result.compressions[number]) => c.resolution?.replace(':', '×') ?? '—',
                     },
                     {
                       label: 'Audio Bitrate',
-                      original: '—',
+                      original: orig?.audio_bitrate ? `${orig.audio_bitrate} kbps` : '—',
                       fmt: (c: typeof result.compressions[number]) => c.audio_bitrate ? `${c.audio_bitrate} kbps` : '—',
                     },
                     {
                       label: 'Channel',
-                      original: '—',
+                      original: orig?.channel ?? '—',
                       fmt: (c: typeof result.compressions[number]) => c.channel ?? '—',
                     },
-                  ].map(({ label, original, fmt }) => (
+                  ].filter(m => {
+                    if (m.label === 'Channel' && orig?.type === 'video') return false;
+                    if (m.label === 'Resolution' && orig?.type === 'audio') return false;
+                    return true;
+                  })
+                   .map(({ label, original, fmt }) => (
                     <tr key={label}>
                       <td style={{
                         padding: '12px 16px', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500,

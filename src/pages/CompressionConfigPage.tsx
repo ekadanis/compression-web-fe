@@ -7,7 +7,7 @@ import { compressionsApi } from '../api/compressions';
 const VIDEO_FORMATS = ['mp4', 'mkv', 'avi', 'mov'];
 const AUDIO_FORMATS = ['mp3', 'wav', 'aac', 'ogg'];
 const VIDEO_CODECS = ['libx264', 'libx265', 'libvpx-vp9', 'copy'];
-const AUDIO_CODECS = ['libmp3lame', 'aac', 'libvorbis', 'copy'];
+const AUDIO_CODECS = ['libmp3lame', 'aac', 'libvorbis', 'pcm_s16le', 'copy'];
 const RESOLUTIONS = ['1920:1080', '1280:720', '854:480', '640:360'];
 const FPS_OPTIONS = ['24', '30', '60'];
 const SAMPLE_RATES = ['22050', '44100', '48000'];
@@ -115,7 +115,17 @@ export function CompressionConfigPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
               {/* Format */}
               <Field label="Output Format">
-                <select className="form-select" value={form.format} onChange={set('format')}>
+                <select className="form-select" value={form.format} onChange={(e) => {
+                  const newFormat = e.target.value;
+                  let newCodec = form.codec;
+                  if (mediaType === 'audio') {
+                    if (newFormat === 'mp3') newCodec = 'libmp3lame';
+                    if (newFormat === 'aac') newCodec = 'aac';
+                    if (newFormat === 'ogg') newCodec = 'libvorbis';
+                    if (newFormat === 'wav') newCodec = 'pcm_s16le';
+                  }
+                  setForm(f => ({ ...f, format: newFormat, codec: newCodec }));
+                }}>
                   {(mediaType === 'video' ? VIDEO_FORMATS : AUDIO_FORMATS).map(f => (
                     <option key={f} value={f}>.{f}</option>
                   ))}

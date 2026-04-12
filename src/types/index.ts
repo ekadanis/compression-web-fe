@@ -65,6 +65,11 @@ export interface CompareResult {
     size: number;
     type: string;
     duration: number | null;
+    codec?: string | null;
+    bitrate?: number | null;
+    resolution?: string | null;
+    audio_bitrate?: number | null;
+    channel?: string | null;
   };
   compressions: CompareItem[];
 }
