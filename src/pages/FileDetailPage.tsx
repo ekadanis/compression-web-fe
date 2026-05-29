@@ -33,8 +33,8 @@ export function FileDetailPage() {
   };
 
   const handlePlay = (compression: Compression) => {
-    if (compression.url) {
-      setPlayingMedia({ url: compression.url, type: file?.type ?? 'video' });
+    if (compression.stream_url) {
+      setPlayingMedia({ url: compression.stream_url, type: file?.type ?? 'video' });
     }
   };
 
@@ -49,16 +49,26 @@ export function FileDetailPage() {
 
   useEffect(() => {
     load();
-    // Poll while any compression is processing
-    const interval = setInterval(async () => {
-      const anyProcessing = compressions.some(c => c.status === 'processing');
-      if (anyProcessing || !compressions.length) {
+  }, [id]);
+
+  useEffect(() => {
+    const shouldPoll = compressions.length === 0 || compressions.some((c) => c.status === 'processing');
+
+    if (!shouldPoll) {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      try {
         const fresh = await compressionsApi.listByFile(Number(id));
         setCompressions(fresh);
+      } catch {
+        // ignore transient polling errors
       }
     }, 4000);
-    return () => clearInterval(interval);
-  }, [id]);
+
+    return () => window.clearInterval(interval);
+  }, [compressions, id]);
 
   const toggleSelect = (cid: number) => {
     setSelectedIds(prev =>

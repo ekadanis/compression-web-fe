@@ -1,6 +1,7 @@
 import type { Compression } from '../types';
 import { formatBytes } from '../lib/utils';
 import { Play, Download, Trash2 } from 'lucide-react';
+import { compressionsApi } from '../api/compressions';
 
 interface Props {
   compression: Compression;
@@ -19,6 +20,13 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
   const reduction = originalSize && compression.size
     ? Math.round((1 - compression.size / originalSize) * 100)
     : null;
+  const progress = compression.progress ?? 0;
+  const canPreview = isPreviewableCompression(compression.format);
+
+  const handleDownload = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    await compressionsApi.download(compression);
+  };
 
   return (
     <div className="glass-card p-7 fade-in">
@@ -80,30 +88,41 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
         </div>
       )}
 
+      {compression.status === 'processing' && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+            <span>Compressing...</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{progress}%</span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       {compression.status === 'done' && (
         <div style={{ marginTop: 18, display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {compression.url && (
             <>
-              <button
-                className="btn-primary"
-                style={{ flex: 1, padding: '8px 12px', fontSize: 13, gap: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={(e) => { e.stopPropagation(); onPlay?.(compression); }}
-              >
-                <Play size={14} fill="currentColor" /> Play
-              </button>
+              {canPreview && compression.stream_url && (
+                <button
+                  className="btn-primary"
+                  style={{ flex: 1, padding: '8px 12px', fontSize: 13, gap: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={(e) => { e.stopPropagation(); onPlay?.(compression); }}
+                >
+                  <Play size={14} fill="currentColor" /> Play
+                </button>
+              )}
 
-              <a
-                href={compression.url}
-                target="_blank"
-                rel="noreferrer"
-                download
+              <button
+                type="button"
                 className="btn-secondary"
                 style={{ flex: 1, padding: '8px 12px', fontSize: 13, textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={handleDownload}
               >
                 <Download size={14} /> Download
-              </a>
+              </button>
             </>
           )}
         </div>
@@ -121,6 +140,10 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
       </div>
     </div>
   );
+}
+
+function isPreviewableCompression(format: string): boolean {
+  return ['mp4', 'mkv', 'mov', 'mp3', 'wav', 'ogg', 'aac'].includes(format.toLowerCase());
 }
 
 function Stat({ label, value, valueStyle }: { label: string; value: string; valueStyle?: React.CSSProperties }) {

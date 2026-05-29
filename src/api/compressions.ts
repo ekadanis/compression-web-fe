@@ -14,6 +14,28 @@ export const compressionsApi = {
   delete: (id: number) =>
     api.delete(`/compressions/${id}`),
 
+  download: async (compression: Compression) => {
+    const response = await api.get(`/compressions/${compression.id}/download`, {
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data], {
+      type: response.headers['content-type'] || 'application/octet-stream',
+    });
+
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const extension = compression.format ? `.${compression.format}` : '';
+    const filename = `compressed_${compression.file_id}_${compression.id}${extension}`;
+
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  },
+
   compare: (fileId: number, ids: number[]) =>
     api.get<CompareResult>('/compressions/compare', {
       params: { file_id: fileId, ids },
