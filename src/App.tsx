@@ -9,6 +9,8 @@ import { UploadPage }           from './pages/UploadPage';
 import { FileDetailPage }       from './pages/FileDetailPage';
 import { CompressionConfigPage }from './pages/CompressionConfigPage';
 import { ComparePage }          from './pages/ComparePage';
+import { YoutubePage }          from './pages/YoutubePage';
+import { SoundCloudPage }       from './pages/SoundCloudPage';
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
           {/* Protected routes */}
           <Route path="/"                         element={<AuthGuard><DashboardPage /></AuthGuard>} />
           <Route path="/upload"                    element={<AuthGuard><UploadPage /></AuthGuard>} />
+          <Route path="/youtube"                   element={<AuthGuard><YoutubePage /></AuthGuard>} />
+          <Route path="/soundcloud"                element={<AuthGuard><SoundCloudPage /></AuthGuard>} />
           <Route path="/files/:id"                 element={<AuthGuard><FileDetailPage /></AuthGuard>} />
           <Route path="/files/:id/compress"        element={<AuthGuard><CompressionConfigPage /></AuthGuard>} />
           <Route path="/files/:id/compare"         element={<AuthGuard><ComparePage /></AuthGuard>} />

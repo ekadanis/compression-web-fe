@@ -7,6 +7,8 @@ interface Props { children: ReactNode }
 const NAV = [
   { to: '/', label: 'Dashboard', icon: '' },
   { to: '/upload', label: 'Upload', icon: '' },
+  { to: '/youtube', label: 'YouTube', icon: '' },
+  { to: '/soundcloud', label: 'SoundCloud', icon: '' },
 ];
 
 export function AppLayout({ children }: Props) {
