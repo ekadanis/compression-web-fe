@@ -20,7 +20,7 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
   const reduction = originalSize && compression.size
     ? Math.round((1 - compression.size / originalSize) * 100)
     : null;
-  const progress = compression.progress ?? 0;
+  const progress = Math.min(100, Math.max(0, Math.round(compression.progress ?? 0)));
   const canPreview = isPreviewableCompression(compression.format);
 
   const handleDownload = async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -91,7 +91,7 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
       {compression.status === 'processing' && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
-            <span>Compressing...</span>
+            <span>{progress > 0 ? 'Compressing...' : 'Starting compression...'}</span>
             <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{progress}%</span>
           </div>
           <div className="progress-bar">

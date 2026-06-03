@@ -65,7 +65,7 @@ export function FileDetailPage() {
       } catch {
         // ignore transient polling errors
       }
-    }, 4000);
+    }, 2000);
 
     return () => window.clearInterval(interval);
   }, [compressions, id]);

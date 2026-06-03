@@ -18,7 +18,7 @@ export function UploadPage() {
   const validate = (f: globalThis.File): string => {
     const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED.includes(ext)) return `File type .${ext} is not supported.`;
-    if (f.size > 512 * 1024 * 1024) return 'File exceeds 512 MB limit.';
+    if (f.size > 512 * 1024 * 1024 * 1024) return 'File exceeds 512 MB limit.';
     return '';
   };
 
