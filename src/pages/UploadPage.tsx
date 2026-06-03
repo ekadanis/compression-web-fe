@@ -10,9 +10,11 @@ export function UploadPage() {
   const [file, setFile] = useState<globalThis.File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploadStartedAtRef = useRef<number | null>(null);
   const navigate = useNavigate();
 
   const validate = (f: globalThis.File): string => {
@@ -37,18 +39,38 @@ export function UploadPage() {
 
   const handleUpload = async () => {
     if (!file) return;
-    setUploading(true); setProgress(0); setError('');
+    uploadStartedAtRef.current = Date.now();
+    setUploading(true); setProgress(0); setRemainingSeconds(null); setError('');
     try {
-      const uploaded = await filesApi.upload(file, setProgress);
+      const uploaded = await filesApi.upload(file, ({ percent, loaded, total }) => {
+        setProgress(Math.min(100, Math.max(0, percent)));
+
+        const startedAt = uploadStartedAtRef.current;
+        if (!startedAt || loaded <= 0 || total <= loaded) {
+          setRemainingSeconds(null);
+          return;
+        }
+
+        const elapsedSeconds = (Date.now() - startedAt) / 1000;
+        const bytesPerSecond = loaded / elapsedSeconds;
+        if (elapsedSeconds < 1 || bytesPerSecond <= 0) {
+          setRemainingSeconds(null);
+          return;
+        }
+
+        setRemainingSeconds(Math.ceil((total - loaded) / bytesPerSecond));
+      });
       navigate(`/files/${uploaded.id}`);
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Upload failed.');
     } finally {
       setUploading(false);
+      uploadStartedAtRef.current = null;
     }
   };
 
   const isVideo = (name: string) => ['mp4','mkv','avi','mov'].includes(name.split('.').pop()?.toLowerCase() ?? '');
+  const estimateText = getUploadEstimateText(progress, remainingSeconds);
 
   return (
     <AppLayout>
@@ -121,6 +143,9 @@ export function UploadPage() {
             <div className="progress-bar">
               <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
             </div>
+            <p style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+              {estimateText}
+            </p>
           </div>
         )}
 
@@ -138,4 +163,35 @@ export function UploadPage() {
       </div>
     </AppLayout>
   );
+}
+
+function getUploadEstimateText(progress: number, remainingSeconds: number | null): string {
+  if (progress >= 99) {
+    return 'Hampir selesai...';
+  }
+
+  if (remainingSeconds === null) {
+    return 'Menghitung estimasi selesai...';
+  }
+
+  return `Estimasi selesai dalam ${formatRemainingTime(remainingSeconds)}`;
+}
+
+function formatRemainingTime(seconds: number): string {
+  if (seconds <= 1) {
+    return 'kurang dari 1 detik';
+  }
+
+  if (seconds < 60) {
+    return `${seconds} detik`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+
+  if (restSeconds === 0) {
+    return `${minutes} menit`;
+  }
+
+  return `${minutes} menit ${restSeconds} detik`;
 }
