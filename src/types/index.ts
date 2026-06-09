@@ -40,6 +40,7 @@ export interface Compression {
   is_recommended: boolean;
   status: 'processing' | 'done' | 'failed';
   progress?: number;
+  estimated_seconds_remaining?: number | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -146,6 +147,7 @@ export interface YoutubeUpload {
   scheduled_at: string | null;
   started_at: string | null;
   uploaded_at: string | null;
+  cancel_requested_at?: string | null;
   external_id: string | null;
   url: string | null;
   metadata: Record<string, unknown> | null;

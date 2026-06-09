@@ -97,6 +97,11 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
           <div className="progress-bar">
             <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
           </div>
+          {compression.estimated_seconds_remaining !== null && compression.estimated_seconds_remaining !== undefined && (
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+              Estimated finish: ~{formatRemaining(compression.estimated_seconds_remaining)} remaining
+            </div>
+          )}
         </div>
       )}
 
@@ -140,6 +145,19 @@ export function CompressionCard({ compression, originalSize, onPlay, onDelete }:
       </div>
     </div>
   );
+}
+
+function formatRemaining(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const rest = safeSeconds % 60;
+
+  if (minutes <= 0) return `${rest}s`;
+  if (minutes < 60) return `${minutes}m ${rest}s`;
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
 }
 
 function isPreviewableCompression(format: string): boolean {
