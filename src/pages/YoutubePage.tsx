@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { AppLayout } from '../components/AppLayout';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { DarkSelect } from '../components/DarkSelect';
+import { DarkDateTimePicker } from '../components/DarkDateTimePicker';
 import { youtubeApi } from '../api/youtube';
 import { formatBytes, formatDate } from '../lib/utils';
 import type {
@@ -58,11 +61,15 @@ export function YoutubePage() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [actionTarget, setActionTarget] = useState<{ upload: YoutubeUpload; action: 'cancel' | 'delete' } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const selectedSource = useMemo(
     () => sources.find((item) => item.source_type === form.source_type && item.source_id === form.source_id) ?? null,
     [form.source_id, form.source_type, sources],
   );
+  const nowDateTimeLocal = getMinDateTimeLocal();
 
   const load = async () => {
     setLoading(true);
@@ -172,8 +179,24 @@ export function YoutubePage() {
   };
 
   const handleSubmit = async () => {
+    const nextFieldErrors: Record<string, string> = {};
+
     if (!form.source_id) {
-      setError('Pilih source video terlebih dahulu.');
+      nextFieldErrors.source = 'Video source wajib dipilih.';
+    }
+
+    if (!form.title.trim()) {
+      nextFieldErrors.title = 'Title wajib diisi.';
+    }
+
+    if (form.schedule_mode === 'scheduled' && (!form.scheduled_at || new Date(form.scheduled_at).getTime() <= Date.now())) {
+      nextFieldErrors.scheduled_at = 'Pilih jadwal upload setelah waktu sekarang.';
+    }
+
+    setFieldErrors(nextFieldErrors);
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError('Lengkapi field yang wajib diisi.');
       return;
     }
 
@@ -207,18 +230,24 @@ export function YoutubePage() {
     }
   };
 
-  const handleCancel = async (upload: YoutubeUpload) => {
-    if (!window.confirm('Batalkan upload ini?')) {
-      return;
-    }
+  const handleUploadAction = async () => {
+    if (!actionTarget) return;
 
+    setActionLoading(true);
     try {
-      await youtubeApi.cancelUpload(upload.id);
-      const fresh = await youtubeApi.uploads();
-      setUploads(fresh);
-      setMessage('Upload dibatalkan.');
+      await youtubeApi.cancelUpload(actionTarget.upload.id);
+      if (actionTarget.action === 'delete') {
+        setUploads((current) => current.filter((upload) => upload.id !== actionTarget.upload.id));
+      } else {
+        const fresh = await youtubeApi.uploads();
+        setUploads(fresh);
+      }
+      setMessage(actionTarget.action === 'delete' ? 'Upload dihapus dari YouTube.' : 'Upload dibatalkan.');
+      setActionTarget(null);
     } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to cancel upload.');
+      setError(err.response?.data?.message ?? 'Failed to update upload.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -304,11 +333,15 @@ export function YoutubePage() {
               <div style={{ display: 'grid', gap: 14 }}>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Video Source</span>
-                  <select
+                  <DarkSelect
                     value={`${form.source_type}:${form.source_id}`}
-                    onChange={(e) => {
-                      const [sourceType, sourceId] = e.target.value.split(':');
+                    options={sources.length === 0
+                      ? [{ value: 'file:0', label: 'No video sources available' }]
+                      : sources.map((source) => ({ value: `${source.source_type}:${source.source_id}`, label: source.label }))}
+                    onChange={(value) => {
+                      const [sourceType, sourceId] = value.split(':');
                       const matched = sources.find((item) => item.source_type === sourceType && item.source_id === Number(sourceId));
+                      setFieldErrors((current) => ({ ...current, source: '' }));
                       setForm((current) => ({
                         ...current,
                         source_type: sourceType as 'file' | 'compression',
@@ -316,15 +349,8 @@ export function YoutubePage() {
                         title: matched ? matched.file_name.replace(/\.[^.]+$/, '') : current.title,
                       }));
                     }}
-                    style={inputStyle}
-                  >
-                    {sources.length === 0 && <option value="file:0">No video sources available</option>}
-                    {sources.map((source) => (
-                      <option key={`${source.source_type}:${source.source_id}`} value={`${source.source_type}:${source.source_id}`}>
-                        {source.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  {fieldErrors.source && <FieldError>{fieldErrors.source}</FieldError>}
                 </label>
 
                 {selectedSource && (
@@ -341,7 +367,8 @@ export function YoutubePage() {
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Title</span>
-                  <input style={inputStyle} value={form.title} onChange={(e) => setForm((current) => ({ ...current, title: e.target.value }))} />
+                  <input style={inputStyle} value={form.title} onChange={(e) => { setFieldErrors((current) => ({ ...current, title: '' })); setForm((current) => ({ ...current, title: e.target.value })); }} />
+                  {fieldErrors.title && <FieldError>{fieldErrors.title}</FieldError>}
                 </label>
 
                 <label style={{ display: 'grid', gap: 6 }}>
@@ -357,47 +384,30 @@ export function YoutubePage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Category ID</span>
-                    <select
-                      style={inputStyle}
-                      value={form.category_id ?? '22'}
-                      onChange={(e) => setForm((current) => ({ ...current, category_id: e.target.value }))}
-                    >
-                      {YOUTUBE_CATEGORIES.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.label}
-                        </option>
-                      ))}
-                    </select>
+                    <DarkSelect value={form.category_id ?? '22'} options={YOUTUBE_CATEGORIES.map((category) => ({ value: category.id, label: category.label }))} onChange={(value) => setForm((current) => ({ ...current, category_id: value }))} />
                   </label>
 
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Visibility</span>
-                    <select style={inputStyle} value={form.visibility} onChange={(e) => setForm((current) => ({ ...current, visibility: e.target.value as CreateYoutubeUploadPayload['visibility'] }))}>
-                      <option value="private">Private</option>
-                      <option value="unlisted">Unlisted</option>
-                      <option value="public">Public</option>
-                    </select>
+                    <DarkSelect value={form.visibility} options={[{ value: 'private', label: 'Private' }, { value: 'unlisted', label: 'Unlisted' }, { value: 'public', label: 'Public' }]} onChange={(value) => setForm((current) => ({ ...current, visibility: value as CreateYoutubeUploadPayload['visibility'] }))} />
                   </label>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Mode</span>
-                    <select style={inputStyle} value={form.schedule_mode} onChange={(e) => setForm((current) => ({ ...current, schedule_mode: e.target.value as CreateYoutubeUploadPayload['schedule_mode'] }))}>
-                      <option value="now">Upload Now</option>
-                      <option value="scheduled">Schedule</option>
-                    </select>
+                    <DarkSelect value={form.schedule_mode} options={[{ value: 'now', label: 'Upload Now' }, { value: 'scheduled', label: 'Schedule' }]} onChange={(value) => setForm((current) => ({ ...current, schedule_mode: value as CreateYoutubeUploadPayload['schedule_mode'], scheduled_at: value === 'now' ? undefined : current.scheduled_at }))} />
                   </label>
 
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Scheduled At</span>
-                    <input
-                      style={inputStyle}
-                      type="datetime-local"
-                      value={form.scheduled_at ?? ''}
+                    <DarkDateTimePicker
+                      min={nowDateTimeLocal}
+                      value={form.scheduled_at}
                       disabled={form.schedule_mode !== 'scheduled'}
-                      onChange={(e) => setForm((current) => ({ ...current, scheduled_at: e.target.value || undefined }))}
+                      onChange={(value) => { setFieldErrors((current) => ({ ...current, scheduled_at: '' })); setForm((current) => ({ ...current, scheduled_at: value })); }}
                     />
+                    {fieldErrors.scheduled_at && <FieldError>{fieldErrors.scheduled_at}</FieldError>}
                   </label>
                 </div>
 
@@ -439,11 +449,15 @@ export function YoutubePage() {
                       {upload.error_message && <p style={{ margin: '8px 0 0', color: '#fca5a5', fontSize: 13 }}>{upload.error_message}</p>}
                     </div>
 
-                    <div style={{ display: 'grid', gap: 10, justifyItems: 'end', minWidth: 180 }}>
-                      <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 700 }}>{upload.progress}%</div>
-                      <div className="progress-bar" style={{ width: '100%' }}>
-                        <div className="progress-bar-fill" style={{ width: `${upload.progress}%` }} />
-                      </div>
+                    <div style={{ display: 'grid', gap: 10, justifyItems: 'end', minWidth: 240 }}>
+                      {['pending', 'scheduled', 'processing'].includes(upload.status) && (
+                        <>
+                          <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 700 }}>{upload.progress}%</div>
+                          <div className="progress-bar" style={{ width: '100%' }}>
+                            <div className="progress-bar-fill" style={{ width: `${upload.progress}%` }} />
+                          </div>
+                        </>
+                      )}
                       {upload.status === 'pending' && (
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Waiting for queue worker</div>
                       )}
@@ -453,12 +467,17 @@ export function YoutubePage() {
                       {upload.status === 'processing' && (
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Uploading to YouTube</div>
                       )}
-                      {upload.url && (
-                        <a className="btn-secondary" href={upload.url} target="_blank" rel="noreferrer">Open Video</a>
-                      )}
-                      {['pending', 'scheduled'].includes(upload.status) && (
-                        <button className="btn-danger" onClick={() => handleCancel(upload)}>Cancel</button>
-                      )}
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                        {upload.url && (
+                          <a className="btn-secondary" style={smallActionButtonStyle} href={upload.url} target="_blank" rel="noreferrer">Open Video</a>
+                        )}
+                        {['pending', 'scheduled', 'processing'].includes(upload.status) && (
+                          <button className="btn-danger" style={smallActionButtonStyle} onClick={() => setActionTarget({ upload, action: 'cancel' })}>Cancel</button>
+                        )}
+                        {['uploaded', 'cancelled', 'failed'].includes(upload.status) && (
+                          <button className="btn-danger" style={smallActionButtonStyle} onClick={() => setActionTarget({ upload, action: 'delete' })}>Delete</button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -467,8 +486,23 @@ export function YoutubePage() {
           )}
         </section>
       </div>
+      <ConfirmModal
+        open={actionTarget !== null}
+        title={actionTarget?.action === 'delete' ? 'Delete upload?' : 'Cancel upload?'}
+        message={actionTarget?.action === 'delete'
+          ? 'If this upload already exists on YouTube, the video will be deleted and the history status becomes cancelled.'
+          : 'This upload will be cancelled. Running uploads stop on the next upload chunk.'}
+        confirmLabel={actionTarget?.action === 'delete' ? 'Delete' : 'Cancel Upload'}
+        loading={actionLoading}
+        onConfirm={handleUploadAction}
+        onCancel={() => setActionTarget(null)}
+      />
     </AppLayout>
   );
+}
+
+function FieldError({ children }: { children: ReactNode }) {
+  return <span style={{ color: '#fca5a5', fontSize: 12, fontWeight: 600 }}>{children}</span>;
 }
 
 const inputStyle: CSSProperties = {
@@ -476,10 +510,24 @@ const inputStyle: CSSProperties = {
   background: '#151522',
   color: 'var(--text-primary)',
   borderRadius: 12,
-  padding: '12px 14px',
+  padding: '12px 14px 12px 18px',
   outline: 'none',
   width: '100%',
   appearance: 'none',
   WebkitAppearance: 'none',
   MozAppearance: 'none',
 };
+
+const smallActionButtonStyle: CSSProperties = {
+  padding: '6px 10px',
+  fontSize: 12,
+  borderRadius: 8,
+  lineHeight: 1.2,
+  whiteSpace: 'nowrap',
+};
+
+function getMinDateTimeLocal(): string {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
