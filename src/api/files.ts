@@ -1,6 +1,13 @@
 import api from '../lib/axios';
 import type { File, PaginatedResponse } from '../types';
 
+export interface FileListParams {
+  page?: number;
+  type?: 'all' | 'audio' | 'video';
+  sort?: 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
+  search?: string;
+}
+
 export interface UploadProgress {
   percent: number;
   loaded: number;
@@ -8,8 +15,8 @@ export interface UploadProgress {
 }
 
 export const filesApi = {
-  list: (page = 1) =>
-    api.get<PaginatedResponse<File>>('/files', { params: { page } }).then(r => r.data),
+  list: (params: FileListParams = {}) =>
+    api.get<PaginatedResponse<File>>('/files', { params: { page: 1, ...params } }).then(r => r.data),
 
   get: (id: number) =>
     api.get<File>(`/files/${id}`).then(r => r.data),
