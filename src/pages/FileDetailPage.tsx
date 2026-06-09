@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { CompressionCard } from '../components/CompressionCard';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { filesApi } from '../api/files';
 import { compressionsApi } from '../api/compressions';
 import type { File, Compression } from '../types';
@@ -20,15 +21,22 @@ export function FileDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [playingMedia, setPlayingMedia] = useState<{ url: string; type: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Compression | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleDelete = async (compression: Compression) => {
-    if (!confirm('Are you sure you want to delete this compression?')) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
     try {
-      await compressionsApi.delete(compression.id);
-      setCompressions(prev => prev.filter(c => c.id !== compression.id));
-      setSelectedIds(prev => prev.filter(cid => cid !== compression.id));
+      await compressionsApi.delete(deleteTarget.id);
+      setCompressions(prev => prev.filter(c => c.id !== deleteTarget.id));
+      setSelectedIds(prev => prev.filter(cid => cid !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err) {
       alert('Failed to delete compression.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -199,7 +207,7 @@ export function FileDetailPage() {
                   <CompressionCard 
                     compression={c} 
                     originalSize={file.size} 
-                    onDelete={handleDelete}
+                    onDelete={setDeleteTarget}
                     onPlay={handlePlay}
                   />
                 </div>
@@ -229,6 +237,15 @@ export function FileDetailPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title="Delete compression?"
+        message="This compressed output will be deleted. Original file stays available."
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AppLayout>
   );
 }
