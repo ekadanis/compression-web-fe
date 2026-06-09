@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
+import { DarkSelect } from '../components/DarkSelect';
 import { compressionsApi } from '../api/compressions';
 
 // Config options
@@ -42,8 +43,9 @@ export function CompressionConfigPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }));
+  const setValue = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
 
   const handleTypeChange = (type: 'video' | 'audio') => {
     setMediaType(type);
@@ -115,8 +117,7 @@ export function CompressionConfigPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
               {/* Format */}
               <Field label="Output Format">
-                <select className="form-select" value={form.format} onChange={(e) => {
-                  const newFormat = e.target.value;
+                <DarkSelect value={form.format} options={(mediaType === 'video' ? VIDEO_FORMATS : AUDIO_FORMATS).map(f => ({ value: f, label: `.${f}` }))} onChange={(newFormat) => {
                   let newCodec = form.codec;
                   if (mediaType === 'audio') {
                     if (newFormat === 'mp3') newCodec = 'libmp3lame';
@@ -125,20 +126,12 @@ export function CompressionConfigPage() {
                     if (newFormat === 'wav') newCodec = 'pcm_s16le';
                   }
                   setForm(f => ({ ...f, format: newFormat, codec: newCodec }));
-                }}>
-                  {(mediaType === 'video' ? VIDEO_FORMATS : AUDIO_FORMATS).map(f => (
-                    <option key={f} value={f}>.{f}</option>
-                  ))}
-                </select>
+                }} />
               </Field>
 
               {/* Codec */}
               <Field label="Codec">
-                <select className="form-select" value={form.codec} onChange={set('codec')}>
-                  {(mediaType === 'video' ? VIDEO_CODECS : AUDIO_CODECS).map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <DarkSelect value={form.codec} options={(mediaType === 'video' ? VIDEO_CODECS : AUDIO_CODECS).map(c => ({ value: c, label: c }))} onChange={(value) => setValue('codec', value)} />
               </Field>
 
               {mediaType === 'video' ? (
@@ -147,16 +140,10 @@ export function CompressionConfigPage() {
                     <input type="number" className="form-input" value={form.bitrate} onChange={set('bitrate')} placeholder="e.g. 2000" min={100} />
                   </Field>
                   <Field label="Resolution">
-                    <select className="form-select" value={form.resolution} onChange={set('resolution')}>
-                      <option value="">— Keep original —</option>
-                      {RESOLUTIONS.map(r => <option key={r} value={r}>{r.replace(':', '×')}</option>)}
-                    </select>
+                    <DarkSelect value={form.resolution} options={[{ value: '', label: 'Keep original' }, ...RESOLUTIONS.map(r => ({ value: r, label: r.replace(':', '×') }))]} onChange={(value) => setValue('resolution', value)} />
                   </Field>
                   <Field label="FPS">
-                    <select className="form-select" value={form.fps} onChange={set('fps')}>
-                      <option value="">— Keep original —</option>
-                      {FPS_OPTIONS.map(f => <option key={f} value={f}>{f} fps</option>)}
-                    </select>
+                    <DarkSelect value={form.fps} options={[{ value: '', label: 'Keep original' }, ...FPS_OPTIONS.map(f => ({ value: f, label: `${f} fps` }))]} onChange={(value) => setValue('fps', value)} />
                   </Field>
                   <Field label="Audio Bitrate (kbps)">
                     <input type="number" className="form-input" value={form.audio_bitrate} onChange={set('audio_bitrate')} placeholder="e.g. 128" min={32} />
@@ -168,14 +155,10 @@ export function CompressionConfigPage() {
                     <input type="number" className="form-input" value={form.audio_bitrate} onChange={set('audio_bitrate')} placeholder="e.g. 128" min={32} />
                   </Field>
                   <Field label="Sample Rate">
-                    <select className="form-select" value={form.sample_rate} onChange={set('sample_rate')}>
-                      {SAMPLE_RATES.map(r => <option key={r} value={r}>{r} Hz</option>)}
-                    </select>
+                    <DarkSelect value={form.sample_rate} options={SAMPLE_RATES.map(r => ({ value: r, label: `${r} Hz` }))} onChange={(value) => setValue('sample_rate', value)} />
                   </Field>
                   <Field label="Channel">
-                    <select className="form-select" value={form.channel} onChange={set('channel')}>
-                      {CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <DarkSelect value={form.channel} options={CHANNELS.map(c => ({ value: c, label: c }))} onChange={(value) => setValue('channel', value)} />
                   </Field>
                 </>
               )}

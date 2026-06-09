@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AppLayout } from '../components/AppLayout';
+import { DarkSelect } from '../components/DarkSelect';
+import { DarkDateTimePicker } from '../components/DarkDateTimePicker';
 import { soundcloudApi } from '../api/soundcloud';
 import { formatBytes, formatDate } from '../lib/utils';
 import type {
@@ -46,6 +48,7 @@ export function SoundCloudPage() {
     () => sources.find((item) => item.source_type === form.source_type && item.source_id === form.source_id) ?? null,
     [form.source_id, form.source_type, sources],
   );
+  const nowDateTimeLocal = getMinDateTimeLocal();
 
   const load = async () => {
     setLoading(true);
@@ -157,6 +160,11 @@ export function SoundCloudPage() {
   const handleSubmit = async () => {
     if (!form.source_id) {
       setError('Pilih source audio terlebih dahulu.');
+      return;
+    }
+
+    if (form.schedule_mode === 'scheduled' && (!form.scheduled_at || new Date(form.scheduled_at).getTime() <= Date.now())) {
+      setError('Pilih jadwal upload setelah waktu sekarang.');
       return;
     }
 
@@ -295,10 +303,13 @@ export function SoundCloudPage() {
               <div style={{ display: 'grid', gap: 14 }}>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Audio Source</span>
-                  <select
+                  <DarkSelect
                     value={`${form.source_type}:${form.source_id}`}
-                    onChange={(e) => {
-                      const [sourceType, sourceId] = e.target.value.split(':');
+                    options={sources.length === 0
+                      ? [{ value: 'file:0', label: 'No audio sources available' }]
+                      : sources.map((source) => ({ value: `${source.source_type}:${source.source_id}`, label: source.label }))}
+                    onChange={(value) => {
+                      const [sourceType, sourceId] = value.split(':');
                       const matched = sources.find((item) => item.source_type === sourceType && item.source_id === Number(sourceId));
                       setForm((current) => ({
                         ...current,
@@ -307,15 +318,7 @@ export function SoundCloudPage() {
                         title: matched ? matched.file_name.replace(/\.[^.]+$/, '') : current.title,
                       }));
                     }}
-                    style={inputStyle}
-                  >
-                    {sources.length === 0 && <option value="file:0">No audio sources available</option>}
-                    {sources.map((source) => (
-                      <option key={`${source.source_type}:${source.source_id}`} value={`${source.source_type}:${source.source_id}`}>
-                        {source.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
 
                 {selectedSource && (
@@ -355,29 +358,22 @@ export function SoundCloudPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12 }}>
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Sharing</span>
-                    <select style={inputStyle} value={form.sharing} onChange={(e) => setForm((current) => ({ ...current, sharing: e.target.value as CreateSoundCloudUploadPayload['sharing'] }))}>
-                      <option value="private">Private</option>
-                      <option value="public">Public</option>
-                    </select>
+                    <DarkSelect value={form.sharing} options={[{ value: 'private', label: 'Private' }, { value: 'public', label: 'Public' }]} onChange={(value) => setForm((current) => ({ ...current, sharing: value as CreateSoundCloudUploadPayload['sharing'] }))} />
                   </label>
 
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Mode</span>
-                    <select style={inputStyle} value={form.schedule_mode} onChange={(e) => setForm((current) => ({ ...current, schedule_mode: e.target.value as CreateSoundCloudUploadPayload['schedule_mode'] }))}>
-                      <option value="now">Upload Now</option>
-                      <option value="scheduled">Schedule</option>
-                    </select>
+                    <DarkSelect value={form.schedule_mode} options={[{ value: 'now', label: 'Upload Now' }, { value: 'scheduled', label: 'Schedule' }]} onChange={(value) => setForm((current) => ({ ...current, schedule_mode: value as CreateSoundCloudUploadPayload['schedule_mode'], scheduled_at: value === 'now' ? undefined : current.scheduled_at }))} />
                   </label>
                 </div>
 
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Scheduled At</span>
-                  <input
-                    style={inputStyle}
-                    type="datetime-local"
-                    value={form.scheduled_at ?? ''}
+                  <DarkDateTimePicker
+                    min={nowDateTimeLocal}
+                    value={form.scheduled_at}
                     disabled={form.schedule_mode !== 'scheduled'}
-                    onChange={(e) => setForm((current) => ({ ...current, scheduled_at: e.target.value || undefined }))}
+                    onChange={(value) => setForm((current) => ({ ...current, scheduled_at: value }))}
                   />
                 </label>
 
@@ -456,10 +452,16 @@ const inputStyle: CSSProperties = {
   background: '#151522',
   color: 'var(--text-primary)',
   borderRadius: 12,
-  padding: '12px 14px',
+  padding: '12px 14px 12px 18px',
   outline: 'none',
   width: '100%',
   appearance: 'none',
   WebkitAppearance: 'none',
   MozAppearance: 'none',
 };
+
+function getMinDateTimeLocal(): string {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
