@@ -76,7 +76,7 @@ export function UploadPage() {
     <AppLayout>
       <div className="fade-in" style={{ maxWidth: 620 }}>
         <h1 className="page-title">Upload File</h1>
-        <p className="page-subtitle">Supported: MP4, MKV, AVI, MOV, MP3, WAV, AAC, OGG · Max 512 MB</p>
+        <p className="page-subtitle">Supported: MP4, MKV, AVI, MOV, MP3, WAV, AAC, OGG ·</p>
 
         {/* Dropzone */}
         <div
